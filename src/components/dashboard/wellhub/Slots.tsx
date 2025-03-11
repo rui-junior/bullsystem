@@ -19,27 +19,27 @@ import {
 } from "@chakra-ui/react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/router";
-import { ClassData, ModalEditSlotsInterface, ModalNewSlostInterface } from "./types/types";
+import { ClassData, ModalNewSlostInterface } from "./types/types";
 import AddTime from "@/components/icons/AddTime";
-import Edit from "@/components/icons/Edit";
 import Garbage from "@/components/icons/Garbage";
+import useAuth from "../utils/hook/useAuth";
 
 const extractDateTime = (dateTimeString: string) => {
-  const cleanedString = dateTimeString.replace(/\[UTC\]$/, "");
+  const cleanedString = dateTimeString.replace(/\[UTC\]$/, ""); // Remove a tag UTC, se houver
 
   const dateObj = new Date(cleanedString);
 
-  const day = String(dateObj.getUTCDate()).padStart(2, "0"); // Dia com dois dígitos
-  const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0"); // Mês (começa do zero)
-  const year = String(dateObj.getUTCFullYear()).slice(-2); // Apenas os últimos 2 dígitos do ano
+  const day = String(dateObj.getDate()).padStart(2, "0"); // Dia com dois dígitos
+  const month = String(dateObj.getMonth() + 1).padStart(2, "0"); // Mês (começa do zero)
+  const year = String(dateObj.getFullYear()).slice(-2); // Apenas os últimos 2 dígitos do ano
 
-  const hours = String(dateObj.getUTCHours()).padStart(2, "0");
-  const minutes = String(dateObj.getUTCMinutes()).padStart(2, "0");
+  const hours = String(dateObj.getHours()).padStart(2, "0"); // Pegando o horário local
+  const minutes = String(dateObj.getMinutes()).padStart(2, "0");
 
   const date = `${day}/${month}/${year}`;
   const time = `${hours}:${minutes}`;
 
-  return { date: date, time: time };
+  return { date, time };
 };
 
 export default function Slots() {
@@ -51,42 +51,18 @@ export default function Slots() {
     onClose: onCloseDeleteSlots,
   } = useDisclosure();
 
-  const {
-    isOpen: isOpenEditSlots,
-    onOpen: onOpenEditSlots,
-    onClose: onCloseEditSlots,
-  } = useDisclosure();
-
   const [data, setData] = useState<ClassData[]>([]);
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
   const [reloadTrigger, setReloadTrigger] = useState(0);
   const [selectedClass, setSelectedClass] = useState<ClassData | null>(null);
-  const [selectedSlots, setSelectedSlots] = useState<any>(null);
+  // const [selectedSlots, setSelectedSlots] = useState<any>(null);
   const today = new Date();
   const [selectedMonth, setSelectedMonth] = useState(
     `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`
   );
-
-  // const router = useRouter();
-
-  // function getSlotsQueryString() {
-  //   const today = new Date();
-
-  //   const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-
-  //   const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-
-  //   const formatDate = (date: Date) => {
-  //     const offset = "+03:00";
-  //     return date.toISOString().replace("Z", offset);
-  //   };
-
-  //   const from = formatDate(firstDay);
-  //   const to = formatDate(new Date(lastDay.setHours(23, 59, 59))); // Define o horário final
-
-  //   return `slots?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`;
-  // }
+  const uid = useAuth();
+  const router = useRouter();
 
   const getSlotsQueryString = (month: string) => {
     const [year, monthNumber] = month.split("-").map(Number);
@@ -110,7 +86,7 @@ export default function Slots() {
   useEffect(() => {
     const fetchDataAndSlots = async () => {
       try {
-        const response = await fetch("/api/wellhubclasses");
+        const response = await fetch("/api/gympass/wellhubclasses");
         const result = await response.json();
 
         if (Array.isArray(result.classes)) {
@@ -120,16 +96,19 @@ export default function Slots() {
 
           const classesWithSlots = await Promise.all(
             filteredClasses.map(async (classItem: ClassData) => {
-              const slotResponse = await fetch("/api/getlistwellhubslots", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  class_id: classItem.id,
-                  gym_id: classItem.gym_id,
-                  product_id: classItem.product_id,
-                  slots_query: getSlotsQueryString(selectedMonth),
-                }),
-              });
+              const slotResponse = await fetch(
+                "/api/gympass/getlistwellhubslots",
+                {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    class_id: classItem.id,
+                    gym_id: classItem.gym_id,
+                    product_id: classItem.product_id,
+                    slots_query: getSlotsQueryString(selectedMonth),
+                  }),
+                }
+              );
 
               const slotData = await slotResponse.json();
 
@@ -152,64 +131,66 @@ export default function Slots() {
     fetchDataAndSlots();
   }, [reloadTrigger, selectedMonth]);
 
+  // useEffect(() => {
+  //   const saveDataToFirebase = async () => {
+  //     if (data.length === 0) return; // Evita gravações desnecessárias
+
+  //     try {
+  //       await setDoc(
+  //         doc(database, "admins", `${uid}`, "gympass_slots", id_booking),
+  //         {
+  //           nome,
+  //           email,
+  //           gympass_id,
+  //           booking_number,
+  //           class_id,
+  //           gym_id,
+  //           slot_id,
+  //           booking_id,
+  //         }
+  //       );
+  //     } catch (error) {
+  //       console.error("Erro geral ao salvar no Firebase:", error);
+  //     }
+  //   };
+
+  //   saveDataToFirebase();
+  // }, [data]);
+
   const handleOpenModal = (item: ClassData) => {
     setSelectedClass(item);
     onOpen();
   };
 
   const closeNewSlotsModal = () => {
-    setReloadTrigger(prev => prev + 1);
-    onClose()
+    setReloadTrigger((prev) => prev + 1);
+    onClose();
   };
-
-  // const handleOpenModalEditSlots = (item: any) => {
-  //   onOpenEditSlots();
-  //   setSelectedSlots(item);
-  // };
-
-  // const extractDateTime = (dateTimeString: string) => {
-  //   const cleanedString = dateTimeString.replace(/\[UTC\]$/, "");
-
-  //   const dateObj = new Date(cleanedString);
-
-  //   const day = String(dateObj.getUTCDate()).padStart(2, "0"); // Dia com dois dígitos
-  //   const month = String(dateObj.getUTCMonth() + 1).padStart(2, "0"); // Mês (começa do zero)
-  //   const year = String(dateObj.getUTCFullYear()).slice(-2); // Apenas os últimos 2 dígitos do ano
-
-  //   const hours = String(dateObj.getUTCHours()).padStart(2, "0");
-  //   const minutes = String(dateObj.getUTCMinutes()).padStart(2, "0");
-
-  //   const date = `${day}/${month}/${year}`;
-  //   const time = `${hours}:${minutes}`;
-
-  //   return { date: date, time: time };
-  // };
 
   const deleteSlots = async (
     slots_id: number,
     class_id: number,
-    gym_id: number
+    gym_id: number,
+    uid: string
   ) => {
     try {
-      const response = await fetch("/api/deletewellhubslots", {
+      const response = await fetch("/api/gympass/deletewellhubslots", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ slots_id, class_id, gym_id }),
+        body: JSON.stringify({ slots_id, class_id, gym_id, uid }),
       });
 
-      if (!response.ok) {
-        throw new Error(
-          `Erro ao deletar slot: ${response.status} - ${response.statusText}`
-        );
-      }
+      const data = await response.json();
 
-      const result = await response.json();
-      if (result == null) {
+      if (!data.error) {
         setReloadTrigger((prev) => prev + 1);
         onCloseDeleteSlots();
+        return;
       }
+
+      router.reload();
     } catch (error) {
       console.error("Erro ao deletar slot:", error);
     }
@@ -231,7 +212,7 @@ export default function Slots() {
         </Text>
       </Flex>
     );
-    
+
   if (error) return <div>Error: {error}</div>;
 
   return (
@@ -241,31 +222,17 @@ export default function Slots() {
         <ModalContent minWidth="fit-content" h="fit-content">
           <ModalCloseButton color="#fff" />
           <ModalBody>
-            {selectedClass && ( // Verifica se há um item selecionado
+            {selectedClass && (
               <>
-                <ModalNewSlots item={selectedClass} onCancel={closeNewSlotsModal} />
-              </>
-            )}
-          </ModalBody>
-        </ModalContent>
-      </Modal>
-
-      {/* <Modal onClose={onCloseEditSlots} isOpen={isOpenEditSlots} isCentered>
-        <ModalOverlay />
-        <ModalContent minWidth="fit-content" h="fit-content">
-          <ModalCloseButton />
-          <ModalBody>
-            {selectedSlots && (
-              <>
-                <ModalEditSlots
-                  item={selectedSlots}
-                  onCancel={onCloseEditSlots}
+                <ModalNewSlots
+                  item={selectedClass}
+                  onCancel={closeNewSlotsModal}
                 />
               </>
             )}
           </ModalBody>
         </ModalContent>
-      </Modal> */}
+      </Modal>
 
       <Flex
         w={"100%"}
@@ -276,7 +243,15 @@ export default function Slots() {
         alignItems={"flex-start"}
         gap={"15px"}
       >
-        <Flex w={["auto"]} h={["auto"]} bg='white' align={'center'} gap={'15px'} px={"25px"} py={'10px'}>
+        <Flex
+          w={["auto"]}
+          h={["auto"]}
+          bg="white"
+          align={"center"}
+          gap={"15px"}
+          px={"25px"}
+          py={"10px"}
+        >
           <Text bg="cinza" px={["15px"]} h={["25px"]} align={"center"}>
             Mês
           </Text>
@@ -338,7 +313,6 @@ export default function Slots() {
                   </Flex>
                 </Flex>
 
-                {/* Renderiza os slots dentro de cada aula */}
                 {item.slots &&
                   item.slots.map((element: any) => (
                     <Flex
@@ -372,10 +346,10 @@ export default function Slots() {
                               Data
                             </Text>
                             <Text fontSize={"sm"}>
-                            {extractDateTime(element.occur_date).date}
+                              {extractDateTime(element.occur_date).date}
                             </Text>
                           </Flex>
-                          
+
                           <Flex gap={"10px"} align={"center"}>
                             <Text
                               bg="cinza"
@@ -401,23 +375,11 @@ export default function Slots() {
                             >
                               nº Vagas
                             </Text>
-                            <Text fontSize={"sm"}>
-                              {element.total_booked}
-                            </Text>
+                            <Text fontSize={"sm"}>{element.total_booked}</Text>
                           </Flex>
                         </Flex>
 
                         <Flex align={"center"} px={"10px"} gap={"10px"}>
-                          {/* <Box
-                            bg="cinza"
-                            px={["5px"]}
-                            onClick={() => {
-                              handleOpenModalEditSlots(element);
-                            }}
-                            cursor={"pointer"}
-                          >
-                            <Edit w={20} h={20} f={1} />
-                          </Box> */}
                           <Box
                             bg="cinza"
                             px={["5px"]}
@@ -441,7 +403,7 @@ export default function Slots() {
                             <Flex
                               mt={"50px"}
                               justifyContent={"center"}
-                              bg="cinza"
+                              // bg="cinza"
                             >
                               <Text
                                 fontWeight={"semibold"}
@@ -465,7 +427,8 @@ export default function Slots() {
                                 deleteSlots(
                                   element.id,
                                   element.class_id,
-                                  item.gym_id
+                                  item.gym_id,
+                                  uid
                                 )
                               }
                               ml={3}
@@ -488,7 +451,10 @@ export default function Slots() {
   );
 }
 
-const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => {
+const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({
+  item,
+  onCancel,
+}) => {
   const [dateClass, setDateClass] = useState<string>("");
   const [duration, setHourDuration] = useState<number>(60);
   const [capacity, setCapacity] = useState<number>(1);
@@ -497,6 +463,7 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
   const [openBook, setOpenBook] = useState("");
   const [closeBook, setCloseBook] = useState("");
   const [instructor, setInstructor] = useState<string>(" ");
+  const [room, setRoom] = useState<string>(" ");
   const [message, setMessage] = useState<string>("");
   const [errorMessage, setErrorMessage] = useState({
     openBook: "",
@@ -506,6 +473,7 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
   const [disabled, setDisabled] = useState<boolean>(true);
   const timeZoneOffset = "-03:00";
   const router = useRouter();
+  const uid = useAuth();
 
   const formatDateForInput = (dateString: string): string => {
     if (!dateString) return "";
@@ -540,10 +508,6 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
         break;
 
       case "cancelUntil":
-        // if (value > openBook || value < dateClass) {
-        //   showError("cancelUntil", "Data inválida!");
-        //   return;
-        // }
         setCancelUntil(value);
         break;
 
@@ -572,7 +536,6 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
     ) {
       setTimeout(() => {
         setMessage("");
-
       }, 4000);
 
       setMessage("Complete corretamente os campos.");
@@ -580,9 +543,11 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
     }
 
     const payload: any = {
+      uid: uid,
       occur_date: `${dateClass}:00${timeZoneOffset}`,
       length_in_minutes: duration,
       total_capacity: capacity,
+      room: room,
       total_booked: booked,
       product_id: item.product_id,
       cancellable_until: `${cancelUntil}:00${timeZoneOffset}`,
@@ -595,33 +560,31 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
     };
 
     if (instructor.trim() !== "") {
-      payload.instructors = [{ "name": instructor, "substitute": false }];
+      payload.instructors = [{ name: instructor, substitute: false }];
     }
 
     try {
-      const response = await fetch("/api/createnewslots", {
+      const newSlotsFetch = await fetch("/api/gympass/createnewslots", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify(payload),
       });
-    
-      const responseText = await response.text();
-      console.log(responseText)
-    
-      if (response.ok) {
-        try {
-          const data = JSON.parse(responseText);
-          console.log(data)
-          data.results.length > 0 && onCancel()
-          
-        } catch {
-          console.warn("Resposta recebida não é um JSON válido:", responseText);
-        }
-      } else {
-        console.warn("Erro na resposta do servidor:", responseText);
+
+      const response = await newSlotsFetch.json();
+
+      if (!response.error) {
+        onCancel();
+        return;
       }
+
+      setTimeout(() => {
+        setMessage("");
+      }, 4000);
+
+      setMessage("Erro interno. Tente novamente.");
+      return;
     } catch (error) {
       console.error("Erro na requisição:", error);
     }
@@ -789,10 +752,10 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
             </Flex>
 
             <Flex w={["90%"]} justifyContent={"space-between"}>
-              <Flex
+            <Flex
                 paddingEnd={"20px"}
                 h={"45px"}
-                w={["50%"]}
+                w={["49%"]}
                 align={"center"}
                 gap={"20px"}
                 bg="cinza"
@@ -831,6 +794,43 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
                   </NumberInput>
                 </Flex>
               </Flex>
+              <Flex
+                paddingEnd={"20px"}
+                h={"45px"}
+                w={["49%"]}
+                align={"center"}
+                gap={"20px"}
+                bg="cinza"
+                justifyContent={"space-between"}
+              >
+                <Flex w={["6px"]} h={"100%"} bg="roxo1">
+                  &nbsp;
+                </Flex>
+                <Flex
+                  h={["100%"]}
+                  w={"auto"}
+                  align={"center"}
+                  flexDirection={"row"}
+                  gap={"5px"}
+                >
+                  <Text variant={"textoModal"}>Sala</Text>
+                </Flex>
+                <Flex>
+                <Input
+                type="Text"
+                bg="#fff"
+                w={"55%"}
+                value={room}
+                maxLength={100}
+                _focus={{
+                  borderColor: "black1",
+                }}
+                onChange={(e) => {
+                  setRoom(e.target.value);
+                }}
+              />
+                </Flex>
+              </Flex>
             </Flex>
 
             {/* Abertura e Fechamento do Agendamento */}
@@ -866,17 +866,8 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
                   disabled={disabled}
                   max={dateClass} // Garante que a data não passe do limite
                   value={openBook}
-                  // onChange={handleOpenBookChange}
                   onChange={(e) => handleDateChange("openBook", e.target.value)}
                 />
-                {/* <Input
-                  type="datetime-local"
-                  disabled={disabled}
-                  max={dateClass}
-                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                    setOpenBook(e.target.value);
-                  }}
-                /> */}
               </Flex>
             </Flex>
 
@@ -913,10 +904,6 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
                   value={closeBook}
                   max={dateClass}
                   min={openBook}
-                  // onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  //   setCloseBook(e.target.value);
-                  // }}
-                  // onChange={handleCloseBookChange}
                   onChange={(e) =>
                     handleDateChange("closeBook", e.target.value)
                   }
@@ -941,16 +928,6 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
                 <Text variant={"textoModal"}>Cancelamento até*</Text>
               </Flex>
               <Flex>
-                {/* <Input
-                  type="datetime-local"
-                  disabled={disabled}
-                  // min={openBook}
-                  max={dateClass}
-                  value={cancelUntil}
-                  onChange={(e) =>
-                    handleDateChange("cancelUntil", e.target.value)
-                  }
-                /> */}
                 <Input
                   type="datetime-local"
                   disabled={disabled}
@@ -959,7 +936,8 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
                   min={openBook}
                   onChange={(e) =>
                     handleDateChange("cancelUntil", e.target.value)
-                  }/>
+                  }
+                />
               </Flex>
             </Flex>
 
@@ -996,7 +974,7 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
 
             {/* Botões */}
             <Flex gap={"10px"}>
-              <Button variant="buttonSalvar" onClick={saveSlots}>
+              <Button variant="buttonFundoBranco" onClick={saveSlots}>
                 Salvar
               </Button>
             </Flex>
@@ -1006,416 +984,3 @@ const ModalNewSlots: React.FC<ModalNewSlostInterface> = ({ item, onCancel }) => 
     </>
   );
 };
-
-// const ModalEditSlots: React.FC<ModalEditSlotsInterface> = ({ item, onCancel }) => {
-//   const [dateClass, setDateClass] = useState<any>("");
-//   const [duration, setHourDuration] = useState<number>(60);
-//   const [capacity, setCapacity] = useState<number>(1);
-//   const [booked, setBooked] = useState<number>(1);
-//   const [cancelUntil, setCancelUntil] = useState("");
-//   const [openBook, setOpenBook] = useState("");
-//   const [closeBook, setCloseBook] = useState("");
-//   const [instructor, setInstructor] = useState<string>(" ");
-//   const [message, setMessage] = useState<string>("");
-//   const [errorMessage, setErrorMessage] = useState({
-//     openBook: "",
-//     closeBook: "",
-//     cancelUntil: "",
-//   });
-//   const [disabled, setDisabled] = useState<boolean>(true);
-//   const timeZoneOffset = "-03:00";
-//   const router = useRouter();
-
-//   console.log(item)
-
-//   const formatDateForInput = (dateString: string) => {
-
-//     const cleanedDate = dateString.replace("Z[UTC]", "");
-
-//     const date = new Date(cleanedDate);
-  
-//     const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-
-//     return localDate.toISOString().slice(0, 16);
-//   };
-
-//   return (
-//     <>
-//       <Flex
-//         justifyContent={["center"]}
-//         align={["center"]}
-//         flexDirection={"column"}
-//         w={"600px"}
-//         h={"600px"}
-//         rowGap={"10px"}
-//       >
-//         <Flex
-//           w={"100%"}
-//           h={"45px"}
-//           position={"absolute"}
-//           top={"0px"}
-//           align={"center"}
-//           px={"50px"}
-//           zIndex={-1}
-//           bg="roxo1"
-//         >
-//           <Text
-//             color={"#fff"}
-//             fontWeight={"bold"}
-//             fontFamily={"inherit"}
-//             fontSize={"md"}
-//           >
-//             Editar Horário
-//           </Text>
-//         </Flex>
-
-//         {message != "" ? (
-//           <Flex
-//             w={"350px"}
-//             h={"80px"}
-//             // style={{ background:"var(--roxo1)"}}
-//             // bg={"#ff5252"}
-//             bg={"roxo1"}
-//             // mt={"25px"}
-//             px={"25px"}
-//             py={"5px"}
-//             mt={"15px"}
-//             rounded={"3px"}
-//             justifyContent={"center"}
-//             align={"center"}
-//           >
-//             <Text fontSize={"md"} fontWeight={"semibold"} color={"#fff"}>
-//               {message}
-//             </Text>
-//           </Flex>
-//         ) : (
-//           <>
-//             {/* <Flex w={"90%"}>
-//               <Text
-//                 fontSize={"lg"}
-//                 fontWeight={"semibold"}
-//                 borderBottom={"2px"}
-//                 borderBottomColor={"roxo1"}
-//               >
-//                 {item.name}
-//               </Text>
-//             </Flex> */}
-//             {/* Data da Aula */}
-
-//             <Flex
-//               paddingEnd={"20px"}
-//               h={"45px"}
-//               w={["90%"]}
-//               align={"center"}
-//               gap={"20px"}
-//               bg="cinza"
-//               justifyContent={"space-between"}
-//             >
-//               <Flex w={["6px"]} h={"100%"} bg="roxo1">
-//                 &nbsp;
-//               </Flex>
-//               <Flex px={["5px"]} h={["25px"]} align={"center"}>
-//                 <Text variant={"textoModal"}>Data da Aula*</Text>
-//               </Flex>
-//               <Flex>
-//                 <Input
-//                   type="datetime-local"
-//                   value={formatDateForInput(item.occur_date ?? "")}
-//                   // onChange={(e) =>
-//                   //   handleDateChange("dateClass", e.target.value)
-//                   // }
-//                 />
-//               </Flex>
-//             </Flex>
-
-//             {/* Número de Vagas e Duração da Aula em minutos */}
-//             <Flex w={["90%"]} justifyContent={"space-between"}>
-//               <Flex
-//                 paddingEnd={"20px"}
-//                 h={"45px"}
-//                 w={["49%"]}
-//                 align={"center"}
-//                 gap={"20px"}
-//                 bg="cinza"
-//                 justifyContent={"space-between"}
-//               >
-//                 <Flex w={["6px"]} h={"100%"} bg="roxo1">
-//                   &nbsp;
-//                 </Flex>
-//                 <Flex px={["5px"]} h={["25px"]} align={"center"}>
-//                   <Text variant={"textoModal"}>Capacidade*</Text>
-//                 </Flex>
-//                 <Flex>
-//                   <NumberInput
-//                     defaultValue={1}
-//                     value={capacity}
-//                     min={1}
-//                     w={"80px"}
-//                     onChange={(valueAsString, valueAsNumber) => {
-//                       setCapacity(valueAsNumber);
-//                     }}
-//                   >
-//                     <NumberInputField />
-//                     <NumberInputStepper>
-//                       <NumberIncrementStepper />
-//                       <NumberDecrementStepper />
-//                     </NumberInputStepper>
-//                   </NumberInput>
-//                 </Flex>
-//               </Flex>
-
-//               <Flex
-//                 paddingEnd={"20px"}
-//                 h={"45px"}
-//                 w={["49%"]}
-//                 align={"center"}
-//                 gap={"20px"}
-//                 bg="cinza"
-//                 justifyContent={"space-between"}
-//               >
-//                 <Flex w={["6px"]} h={"100%"} bg="roxo1">
-//                   &nbsp;
-//                 </Flex>
-//                 <Flex px={["5px"]} h={["25px"]} align={"center"}>
-//                   <Text variant={"textoModal"}>nº Vagas*</Text>
-//                 </Flex>
-//                 <Flex>
-//                   <NumberInput
-//                     defaultValue={1}
-//                     value={booked}
-//                     min={1}
-//                     max={capacity}
-//                     w={"80px"}
-//                     onChange={(valueAsString, valueAsNumber) => {
-//                       setBooked(valueAsNumber);
-//                     }}
-//                   >
-//                     <NumberInputField />
-//                     <NumberInputStepper>
-//                       <NumberIncrementStepper />
-//                       <NumberDecrementStepper />
-//                     </NumberInputStepper>
-//                   </NumberInput>
-//                 </Flex>
-//               </Flex>
-//             </Flex>
-
-//             <Flex w={["90%"]} justifyContent={"space-between"}>
-//               <Flex
-//                 paddingEnd={"20px"}
-//                 h={"45px"}
-//                 w={["50%"]}
-//                 align={"center"}
-//                 gap={"20px"}
-//                 bg="cinza"
-//                 justifyContent={"space-between"}
-//               >
-//                 <Flex w={["6px"]} h={"100%"} bg="roxo1">
-//                   &nbsp;
-//                 </Flex>
-//                 <Flex
-//                   h={["100%"]}
-//                   w={"auto"}
-//                   align={"center"}
-//                   flexDirection={"row"}
-//                   gap={"5px"}
-//                 >
-//                   <Text variant={"textoModal"}>Duração aula</Text>
-//                   <Text fontWeight={"thin"} fontSize={"sm"}>
-//                     (min)
-//                   </Text>
-//                 </Flex>
-//                 <Flex>
-//                   <NumberInput
-//                     defaultValue={60}
-//                     value={duration}
-//                     min={1}
-//                     w={"80px"}
-//                     onChange={(valueAsString, valueAsNumber) => {
-//                       setHourDuration(valueAsNumber);
-//                     }}
-//                   >
-//                     <NumberInputField />
-//                     <NumberInputStepper>
-//                       <NumberIncrementStepper />
-//                       <NumberDecrementStepper />
-//                     </NumberInputStepper>
-//                   </NumberInput>
-//                 </Flex>
-//               </Flex>
-//             </Flex>
-
-//             {/* Abertura e Fechamento do Agendamento */}
-//             <Flex
-//               paddingEnd={"20px"}
-//               h={"45px"}
-//               w={["90%"]}
-//               align={"center"}
-//               gap={"20px"}
-//               bg="cinza"
-//               justifyContent={"space-between"}
-//             >
-//               <Flex w={["6px"]} h={"100%"} bg="roxo1">
-//                 &nbsp;
-//               </Flex>
-//               <Flex px={["5px"]} h={["25px"]} align={"center"} gap={"5px"}>
-//                 {errorMessage.openBook ? (
-//                   <Text color="red.500" fontWeight="bold">
-//                     {errorMessage.openBook}
-//                   </Text>
-//                 ) : (
-//                   <>
-//                     <Text variant={"textoModal"}>Agend.</Text>
-//                     <Text fontWeight={"thin"} fontSize={"sm"}>
-//                       Abertura*
-//                     </Text>
-//                   </>
-//                 )}
-//               </Flex>
-//               <Flex>
-//                 <Input
-//                   type="datetime-local"
-//                   disabled={disabled}
-//                   max={dateClass} // Garante que a data não passe do limite
-//                   value={openBook}
-//                   // onChange={handleOpenBookChange}
-//                   // onChange={(e) => handleDateChange("openBook", e.target.value)}
-//                 />
-//                 {/* <Input
-//                   type="datetime-local"
-//                   disabled={disabled}
-//                   max={dateClass}
-//                   onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-//                     setOpenBook(e.target.value);
-//                   }}
-//                 /> */}
-//               </Flex>
-//             </Flex>
-
-//             <Flex
-//               paddingEnd={"20px"}
-//               h={"45px"}
-//               w={["90%"]}
-//               align={"center"}
-//               gap={"20px"}
-//               bg="cinza"
-//               justifyContent={"space-between"}
-//             >
-//               <Flex w={["6px"]} h={"100%"} bg="roxo1">
-//                 &nbsp;
-//               </Flex>
-//               <Flex px={["5px"]} h={["25px"]} align={"center"} gap={"5px"}>
-//                 {errorMessage.closeBook ? (
-//                   <Text color="red.500" fontWeight="bold">
-//                     {errorMessage.closeBook}
-//                   </Text>
-//                 ) : (
-//                   <>
-//                     <Text variant={"textoModal"}>Agend.</Text>
-//                     <Text fontWeight={"thin"} fontSize={"sm"}>
-//                       Fechamento*
-//                     </Text>
-//                   </>
-//                 )}
-//               </Flex>
-//               <Flex>
-//                 <Input
-//                   type="datetime-local"
-//                   disabled={disabled}
-//                   value={closeBook}
-//                   max={dateClass}
-//                   min={openBook}
-//                   // onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-//                   //   setCloseBook(e.target.value);
-//                   // }}
-//                   // onChange={handleCloseBookChange}
-//                   // onChange={(e) =>
-//                   //   handleDateChange("closeBook", e.target.value)
-//                   // }
-//                 />
-//               </Flex>
-//             </Flex>
-
-//             {/* Limite de Cancelamento */}
-//             <Flex
-//               paddingEnd={"20px"}
-//               h={"45px"}
-//               w={["90%"]}
-//               align={"center"}
-//               gap={"20px"}
-//               bg="cinza"
-//               justifyContent={"space-between"}
-//             >
-//               <Flex w={["6px"]} h={"100%"} bg="roxo1">
-//                 &nbsp;
-//               </Flex>
-//               <Flex px={["5px"]} h={["25px"]} align={"center"}>
-//                 <Text variant={"textoModal"}>Cancelamento até*</Text>
-//               </Flex>
-//               <Flex>
-//                 {/* <Input
-//                   type="datetime-local"
-//                   disabled={disabled}
-//                   // min={openBook}
-//                   max={dateClass}
-//                   value={cancelUntil}
-//                   onChange={(e) =>
-//                     handleDateChange("cancelUntil", e.target.value)
-//                   }
-//                 /> */}
-//                 <Input
-//                   type="datetime-local"
-//                   disabled={disabled}
-//                   value={cancelUntil}
-//                   max={dateClass}
-//                   min={openBook}
-//                   // onChange={(e) =>
-//                   //   handleDateChange("cancelUntil", e.target.value)
-//                   // }
-//                   />
-//               </Flex>
-//             </Flex>
-
-//             <Flex
-//               paddingEnd={"20px"}
-//               h={"45px"}
-//               w={["90%"]}
-//               align={"center"}
-//               gap={"20px"}
-//               bg="cinza"
-//               justifyContent={"space-between"}
-//             >
-//               <Flex w={["6px"]} h={"100%"} bg="roxo1">
-//                 &nbsp;
-//               </Flex>
-//               <Flex px={["5px"]} w={"auto"} h={["25px"]} align={"center"}>
-//                 <Text variant={"textoModal"}>Instrutor</Text>
-//               </Flex>
-
-//               <Input
-//                 type="Text"
-//                 bg="#fff"
-//                 w={"55%"}
-//                 value={instructor}
-//                 maxLength={100}
-//                 _focus={{
-//                   borderColor: "black1",
-//                 }}
-//                 onChange={(e) => {
-//                   setInstructor(e.target.value);
-//                 }}
-//               />
-//             </Flex>
-
-//             {/* Botões */}
-//             <Flex gap={"10px"}>
-//               <Button variant="buttonSalvar">
-//                 Salvar
-//               </Button>
-//             </Flex>
-//           </>
-//         )}
-//       </Flex>
-//     </>
-//   );
-// };

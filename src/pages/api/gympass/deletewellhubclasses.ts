@@ -1,13 +1,14 @@
+import { database } from "@/firebase/firebase";
+import { deleteDoc, doc } from "firebase/firestore";
 import type { NextApiRequest, NextApiResponse } from "next";
 
 export default async function UpdateWellhubClasses(req: NextApiRequest, res: NextApiResponse) {
 
   const token = process.env.GYMPASS_TOKEN
 
-  const { id, gym_id, product_id } = req.body
+  const { id, uid, gym_id, product_id } = req.body
 
   try {
-
 
     const apiUrl = `https://apitesting.partners.gympass.com/booking/v1/gyms/${gym_id}/classes/${id}`;
 
@@ -30,8 +31,22 @@ export default async function UpdateWellhubClasses(req: NextApiRequest, res: Nex
     });
 
 
-    const data = await response.json();
-    return res.status(200).json(data); // Retornando os dados para o front-end
+    if(response.ok){
+
+      try {
+
+        const userDoc = doc(database, "admins", `${uid}`, 'gympass_classes', `${id}`);
+        await deleteDoc(userDoc);
+        return res.status(200).json({error: false}); // Retornando os dados para o front-end
+        
+      } catch (error) {
+        return res.status(500).json({ error: true });
+      }
+
+
+    }
+
+
 
   } catch (error) {
     // console.error('Erro ao fazer a requisição:', error);

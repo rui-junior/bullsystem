@@ -2,17 +2,18 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { database } from "@/firebase/firebase"
 import { deleteDoc, doc } from "firebase/firestore";
 
-export default async function deleteStudent(req: NextApiRequest, res: NextApiResponse) {
+export default async function deleteLogs(req: NextApiRequest, res: NextApiResponse) {
     
-    const { userId, id } = req.body
+    const { uid, id } = req.body
+
 
     if (req.method !== "DELETE") {
-        return res.status(405).json({ error: "Método não permitido" });
+        return res.status(405).json({ delete: true });
       }
 
     try {
         
-        const userDoc = doc(database, "admins", `${userId}`, 'students', id);
+        const userDoc = doc(database, "admins", uid, 'plans', id);
         await deleteDoc(userDoc);
         return res.status(200).json({ 'delete' : true })
         
