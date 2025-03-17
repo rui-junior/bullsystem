@@ -181,6 +181,7 @@ export default function MenuDashboard({
                   nome: `${element.info.user.first_name} ${element.info.user.last_name}`,
                   email: element.info.user.email,
                   genero: "",
+                  plano: "",
                   telefone: element.info.user.phone_number,
                   cpf: "",
                   gympass_id: element.info.gympass_id,
@@ -396,23 +397,27 @@ export default function MenuDashboard({
 
     const response = await dataFetch.json()
 
-    if(!response.error){
-      try {
-        const snapshot = await get(
-          child(ref(databaseRealtime), `booking/success/${element.id}`)
-        );
+    console.log(response)
+    
 
-        if (snapshot.exists()) {
-          await remove(
-            ref(databaseRealtime, `booking/success/${element.id}`)
-          );
-          setAlertLogMessage(true);
-          return;
-        }
-      } catch (error) {
-        console.error("Erro ao remover item do Realtime Database:", error);
-      }
-    }
+    // if(!response.error){
+    //   try {
+    //     const snapshot = await get(
+    //       child(ref(databaseRealtime), `booking/success/${element.id}`)
+    //     );
+
+    //     if (snapshot.exists()) {
+    //       await remove(
+    //         ref(databaseRealtime, `booking/success/${element.id}`)
+    //       );
+    //       setAlertLogMessage(true);
+    //       return;
+    //     }
+    //   } catch (error) {
+    //     console.error("Erro ao remover item do Realtime Database:", error);
+    //   }
+    // }
+
     
   };
 

@@ -21,7 +21,7 @@ export default async function CreateNewError(req: NextApiRequest, res: NextApiRe
 
     try {
 
-        const docRef = doc(database, "admins", `${uid}`, 'gympass_logs', `${year}${month}${day}`);
+        const docRef = doc(database, "admins", `${uid}`, 'gympass_logs', `${year}${month}${day}T${time}`);
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
@@ -36,7 +36,7 @@ export default async function CreateNewError(req: NextApiRequest, res: NextApiRe
 
         }
 
-        await setDoc(doc(database, "admins", `${uid}`, 'gympass_logs', `${year}${month}${day}`), {
+        await setDoc(doc(database, "admins", `${uid}`, 'gympass_logs', `${year}${month}${day}T${time}`), {
             error,
             gym_id,
             gympass_id,
