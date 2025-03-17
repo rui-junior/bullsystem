@@ -6,6 +6,7 @@
     telefone: number;
     cpf: number;
     gympass_id?: number;
+    plano?: string;
     cep?: number;
     logradouro?: string;
     complemento?: string;

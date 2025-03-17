@@ -3,29 +3,33 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { database } from "../../../../firebase/firebase";
 
 export default async function EditStudent(req: NextApiRequest, res: NextApiResponse) {
-    // Verifica se o método HTTP é PUT
+
     if (req.method !== "PUT") {
         return res.status(405).json({ error: true, message: "Método não permitido" });
     }
 
-    try {
-        const {
-            id,
-            nome,
-            email,
-            genero,
-            telefone,
-            cpf,
-            gympass_id,
-            cep,
-            logradouro,
-            complemento,
-            numero,
-            cidade,
-            estado
-        } = req.body;
+    const {
+        uid,
+        id,
+        nome,
+        email,
+        genero,
+        telefone,
+        cpf,
+        gympass_id,
+        plano,
+        cep,
+        logradouro,
+        complemento,
+        numero,
+        cidade,
+        estado
+    } = req.body;
 
-        const studentRef = doc(database, "admins", String(id), "students", String(cpf));
+    
+    try {
+
+        const studentRef = doc(database, "admins", uid, "students", id);
 
         // Atualiza os dados no Firestore
         await updateDoc(studentRef, {
@@ -35,6 +39,7 @@ export default async function EditStudent(req: NextApiRequest, res: NextApiRespo
             telefone,
             cpf,
             gympass_id,
+            plano,
             cep,
             logradouro,
             complemento,

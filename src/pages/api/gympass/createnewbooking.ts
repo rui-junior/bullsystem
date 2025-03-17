@@ -21,41 +21,101 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 export default async function CreateNewCheckin(req: NextApiRequest, res: NextApiResponse) {
 
-    const { uid, nome, email, gympass_id, booking_number, class_id, gym_id, slot_id, booking_id } = req.body
+    const { uid, nome, email, gympass_id, booking_number, class_id, gym_id, slot_id, booking_id } = req.body;
 
     try {
-        const collectionSlots = collection(database, "admins", uid, "gympass_slots")
+        const collectionSlots = collection(database, "admins", uid, "gympass_slots");
+
+        // Consulta para buscar um slot que tenha o mesmo slot_id ou class_id
         const q = query(
             collectionSlots,
-            or(
-                where("id", "==", slot_id),
-                where("class_id", "==", class_id)
-            )
-        )
+            where("id", "==", slot_id),
+            where("class_id", "==", class_id)
+        );
 
+        
         const querySnapshot = await getDocs(q);
+        
+        // Se nenhum documento for encontrado, retorna erro
+        if (querySnapshot.empty) {
+            return res.status(404).json({ error: true, message: "Nenhum slot encontrado para este slot_id ou class_id" });
+        }
+        
+        // Obtém os dados do primeiro documento encontrado
+        const docData = querySnapshot.docs[0].data();
 
-        if (!querySnapshot.empty) {
-            const docData = querySnapshot.docs[0].data();
-            try {
+        try {
+          const bookingRef = doc(database, "admins", uid, "gympass_bookings", `${docData.occur_date}${gympass_id}`);
 
-                await setDoc(doc(database, "admins", uid, 'gympass_bookings', `${docData.occur_date}${gympass_id}`), {
-                    nome, email, gympass_id, booking_number, class_id, gym_id, slot_id, booking_id, occur_date: docData.occur_date
-                });
+          await setDoc(bookingRef, {
+            nome,
+            email,
+            gympass_id,
+            booking_number,
+            class_id,
+            gym_id,
+            slot_id,
+            booking_id,
+            occur_date: docData.occur_date
+          });
 
-                res.status(200).json({ 'error': false })
+          return res.status(200).json({ error: false });
 
-            } catch (error) {
-
-                res.status(500).json({ 'error': true })
-
-            }
+        } catch (error) {
+          console.error("Erro ao salvar reserva:", error);
+          return res.status(500).json({ error: true, message: "Erro ao salvar reserva" });
         }
 
-        res.status(500).json({ 'error': true })
-
     } catch (error) {
-        res.status(500).json({ 'error': true })
+        console.error("Erro na consulta de slots:", error);
+        return res.status(500).json({ error: true, message: "Erro ao buscar slots" });
     }
+
+
+
+
+
+
+
+
+
+
+
+    // const { uid, nome, email, gympass_id, booking_number, class_id, gym_id, slot_id, booking_id } = req.body
+
+    // try {
+    //     const collectionSlots = collection(database, "admins", uid, "gympass_slots")
+    //     const q = query(
+    //         collectionSlots,
+    //         or(
+    //             where("id", "==", slot_id),
+    //             where("class_id", "==", class_id)
+    //         )
+    //     )
+
+    //     const querySnapshot = await getDocs(q);
+
+    //     if (!querySnapshot.empty) {
+    //         const docData = querySnapshot.docs[0].data();
+    //         try {
+
+    //             await setDoc(doc(database, "admins", uid, 'gympass_bookings', `${docData.occur_date}${gympass_id}`), {
+    //                 nome, email, gympass_id, booking_number, class_id, gym_id, slot_id, booking_id, occur_date: docData.occur_date
+    //             });
+
+    //             res.status(200).json({ 'error': false })
+
+    //         } catch (error) {
+
+    //             res.status(500).json({ 'error': true })
+
+    //         }
+    //     }
+
+    //     res.status(500).json({ 'error': true })
+
+    // } catch (error) {
+    //     res.status(500).json({ 'error': true })
+    // }
 
 }

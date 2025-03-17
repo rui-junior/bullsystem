@@ -157,12 +157,9 @@ const capitalizeWords = (str: string): string => {
 
 export default function Students() {
   const [students, setStudents] = useState<StudentsInterface[]>([]);
-  // const [userId, setUserId] = useState<string | null>(null);
-  const [selectedStudent, setSelectedStudent] =
-    useState<StudentsInterface | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<StudentsInterface | null>(null);
   const [loading, setLoading] = useState(true);
   const [update, setUpdate] = useState(false);
-  const token = parseCookies().token;
   const router = useRouter();
 
   const {
@@ -184,24 +181,6 @@ export default function Students() {
   const userId = useAuth();
   idUserUniversal = useAuth();
 
-  // useEffect(() => {
-  //   if (!token) {
-  //     router.reload();
-  //     return;
-  //   }
-
-  //   const unsubscribe = onAuthStateChanged(auth, (user) => {
-  //     if (user?.uid) {
-  //       setUserId(user.uid);
-  //       idUserUniversal = user.uid;
-  //     } else {
-  //       setLoading(false);
-  //     }
-  //   });
-
-  //   return () => unsubscribe();
-  // }, []);
-
   useEffect(() => {
     if (!userId) return;
 
@@ -215,11 +194,6 @@ export default function Students() {
         );
         const studentsSnapshot = await getDocs(studentsCollection);
 
-        // const studentsList = studentsSnapshot.docs.map((doc) => ({
-        //   // id: doc.id,
-        //   // ...doc.data(),
-        //   ...doc.data()
-        // }));
         const studentsList: StudentsInterface[] = studentsSnapshot.docs.map(
           (doc) => {
             const data = doc.data() as Partial<StudentsInterface>;
@@ -232,6 +206,7 @@ export default function Students() {
               telefone: data.telefone ?? 0,
               cpf: data.cpf ?? 0,
               gympass_id: data.gympass_id ?? undefined,
+              plano: data.plano ?? undefined,
               cep: data.cep ?? undefined,
               logradouro: data.logradouro ?? "",
               complemento: data.complemento ?? "",
@@ -316,7 +291,7 @@ export default function Students() {
       p={"20px"}
       flexDirection={"column"}
       alignItems={"flex-start"}
-      gap={"15px"}
+      gap={"10px"}
     >
       <Button
         my={"8px"}
@@ -368,7 +343,7 @@ export default function Students() {
       {students.length > 0 ? (
         students.map((element: any) => (
           <>
-            <Flex flexDirection={"column"} w={"80%"} gap="4px" key={element.id}>
+            <Flex flexDirection={"column"} w={"80%"} gap="1px" key={element.id}>
               <Flex h={"auto"} flexDirection={"row"}>
                 <Flex w={"6px"} height={"full"} bg={["roxo1"]}>
                   &nbsp;
@@ -479,7 +454,7 @@ export default function Students() {
                 <ModalBody>
                   {selectedStudent && (
                     <EditStudent
-                      dataStudent={selectedStudent} // Agora o modal recebe os dados corretos
+                      dataStudent={selectedStudent}
                       closeEditStudent={closeEditStudentModal}
                     />
                   )}
@@ -504,6 +479,7 @@ const NewStudents = ({
   const [message, setMessage] = useState("");
   const [isDisabled, setDisabled] = useState(true);
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [plans, setPlans] = useState<any[]>([])
   const [formValues, setFormValues] = useState({
     id: idUserUniversal,
     nome: "",
@@ -512,6 +488,7 @@ const NewStudents = ({
     telefone: "",
     cpf: "",
     gympass_id: "",
+    plano: "",
     cep: "",
     logradouro: "",
     complemento: "",
@@ -519,6 +496,27 @@ const NewStudents = ({
     cidade: "",
     estado: "",
   });
+
+  useEffect(() => {
+    const getPlansData = async () => {
+
+      try {
+        const PlansCollection = collection(database, "admins", idUserUniversal, "plans"); 
+        const plansSnapshot = await getDocs(PlansCollection);
+
+        const plansList = plansSnapshot.docs.map((doc) => doc.data().nome);
+        setPlans(plansList);
+
+      } catch (error) {
+
+        console.error("Erro ao buscar planos:", error); 
+        
+      }
+
+    }
+
+    getPlansData();
+  }, []);
 
   useEffect(() => {
     if (!formValues.cep) return;
@@ -606,7 +604,8 @@ const NewStudents = ({
       !formValues.email ||
       !formValues.telefone ||
       !formValues.genero ||
-      !formValues.cpf
+      !formValues.cpf ||
+      (!formValues.gympass_id && !formValues.plano)
     ) {
       setTimeout(() => {
         setMessage("");
@@ -677,6 +676,7 @@ const NewStudents = ({
           telefone: formValues.telefone,
           cpf: formValues.cpf,
           gympass_id: formValues.gympass_id,
+          plano: formValues.plano,
           cep: formValues.cep,
           logradouro: formValues.logradouro,
           complemento: capitalizeWords(formValues.complemento),
@@ -805,7 +805,7 @@ const NewStudents = ({
                 onChange={handleChange}
               />
             </Flex>
-            <Flex w={["30%"]}>
+            <Flex flexDirection={"row"} gap={"15px"}>
               <FloatingLabelInput
                 label="Gympass Id"
                 name="gympass_id"
@@ -813,8 +813,24 @@ const NewStudents = ({
                 mask="9999999999999"
                 value={formValues.gympass_id}
                 onChange={handleChange}
-                w="95%"
+                disabled={!!formValues.plano}
               />
+              <FloatingLabelInput
+                label="Plano"
+                name="plano"
+                type="text"
+                list="plano-options"
+                value={formValues.plano}
+                onChange={handleChange}
+                disabled={!!formValues.gympass_id}
+              />
+              <datalist id="plano-options">
+                {
+                  plans.map((plan, index) => (
+                    <option key={index} value={plan} />
+                  ))  
+                }
+              </datalist>
             </Flex>
 
             <Flex flexDirection={"column"} gap={"10px"} my={"20px"}>
@@ -925,15 +941,17 @@ const EditStudent = ({
   const [messageCEP, setMessageCEP] = useState("");
   const [message, setMessage] = useState("");
   const [isDisabled, setDisabled] = useState(true);
+  const [plans, setPlans] = useState<any[]>([]) 
   const [timeoutId, setTimeoutId] = useState<NodeJS.Timeout | null>(null);
   const [formValues, setFormValues] = useState({
-    id: idUserUniversal,
+    id: dataStudent.id,
     nome: dataStudent.nome,
     email: dataStudent.email,
     genero: dataStudent.genero,
     telefone: dataStudent.telefone,
     cpf: dataStudent.cpf,
     gympass_id: dataStudent.gympass_id,
+    plano: dataStudent.plano,
     cep: dataStudent.cep,
     logradouro: dataStudent.logradouro,
     complemento: dataStudent.complemento,
@@ -941,6 +959,27 @@ const EditStudent = ({
     cidade: dataStudent.cidade,
     estado: dataStudent.estado,
   });
+
+  useEffect(() => {
+    const getPlansData = async () => {
+
+      try {
+        const PlansCollection = collection(database, "admins", idUserUniversal, "plans"); 
+        const plansSnapshot = await getDocs(PlansCollection);
+
+        const plansList = plansSnapshot.docs.map((doc) => doc.data().nome);
+        setPlans(plansList);
+
+      } catch (error) {
+
+        console.error("Erro ao buscar planos:", error); 
+        
+      }
+
+    }
+
+    getPlansData();
+  }, []);
 
   useEffect(() => {
     if (!formValues.cep) return;
@@ -1028,7 +1067,8 @@ const EditStudent = ({
       !formValues.email ||
       !formValues.telefone ||
       !formValues.genero ||
-      !formValues.cpf
+      !formValues.cpf ||
+      (!formValues.gympass_id && !formValues.plano)
     ) {
       setTimeout(() => {
         setMessage("");
@@ -1092,13 +1132,15 @@ const EditStudent = ({
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          id: idUserUniversal,
+          uid: idUserUniversal,
+          id: formValues.id,
           nome: capitalizeWords(formValues.nome),
           email: formValues.email.toLowerCase(),
           genero: formValues.genero,
           telefone: formValues.telefone,
           cpf: formValues.cpf,
           gympass_id: formValues.gympass_id,
+          plano: formValues.plano,
           cep: formValues.cep,
           logradouro: formValues.logradouro,
           complemento: capitalizeWords(formValues.complemento),
@@ -1223,7 +1265,7 @@ const EditStudent = ({
                 onChange={handleChange}
               />
             </Flex>
-            <Flex w={["30%"]}>
+            <Flex flexDirection={"row"} gap={"15px"}>
               <FloatingLabelInput
                 label="Gympass Id"
                 name="gympass_id"
@@ -1231,8 +1273,24 @@ const EditStudent = ({
                 mask="9999999999999"
                 value={formValues.gympass_id}
                 onChange={handleChange}
-                // w="95%"
+                disabled={!!formValues.plano}	
               />
+              <FloatingLabelInput
+                label="Plano"
+                name="plano"
+                type="text"
+                list="plano-options"
+                value={formValues.plano}
+                onChange={handleChange}
+                disabled={!!formValues.gympass_id}
+              />
+              <datalist id="plano-options">
+                {
+                  plans.map((plan, index) => (
+                    <option key={index} value={plan} />
+                  ))  
+                }
+              </datalist>
             </Flex>
 
             <Flex flexDirection={"column"} gap={"10px"} my={"20px"}>

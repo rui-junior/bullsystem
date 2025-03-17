@@ -6,7 +6,7 @@ import { database } from "../../../../firebase/firebase"
 export default async function addNewStudent(req: NextApiRequest, res: NextApiResponse) {
 
     const {
-        id, nome, email, genero, telefone, cpf, gympass_id, cep, logradouro, complemento, numero, cidade, estado
+        id, nome, email, genero, telefone, cpf, gympass_id, plano, cep, logradouro, complemento, numero, cidade, estado
     } = req.body
 
     let idFirebaseUser = cpf === "" ? email : cpf;
@@ -29,6 +29,7 @@ export default async function addNewStudent(req: NextApiRequest, res: NextApiRes
             telefone,
             cpf,
             gympass_id,
+            plano,
             cep,
             logradouro,
             complemento,

@@ -77,26 +77,6 @@ export default function MenuDashboard({
     },
   ];
 
-  // const menu = [
-  //   {
-  //     title: "Gympass",
-  //     submenu: [
-  //       { title: "Aulas", link: Classes, icon: Class },
-  //       { title: "Horários", link: Slots, icon: Time },
-  //       { title: "Checkins", link: Checkins, icon: Checking },
-  //       { title: "Logs", link: Log, icon: Logs },
-  //     ],
-  //   },
-  //   {
-  //     title: "Controle",
-  //     submenu: [
-  //       { title: "Alunos", link: Students, icon: Student },
-  //       { title: "Receita", link: "", icon: Backward },
-  //       { title: "Despesa", link: "", icon: Backward },
-  //     ],
-  //   },
-  // ];
-
   const [checkins, setCheckins] = useState<any[]>([]);
   const [errors, setErrors] = useState<any[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
@@ -170,6 +150,7 @@ export default function MenuDashboard({
 
 
   }, [uid]);
+
 
   const verifyUser = async (checkins: any[], uid: string) => {
     for (const element of checkins) {
@@ -330,6 +311,7 @@ export default function MenuDashboard({
                   telefone: element.info.user.phone_number,
                   cpf: "",
                   gympass_id: element.info.user.unique_token,
+                  plano: "",
                   cep: "",
                   logradouro: "",
                   complemento: "",
@@ -431,8 +413,7 @@ export default function MenuDashboard({
         console.error("Erro ao remover item do Realtime Database:", error);
       }
     }
-
-    return dataFetch.json();
+    
   };
 
   // Função para remover um item do Realtime Database

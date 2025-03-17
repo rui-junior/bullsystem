@@ -131,32 +131,6 @@ export default function Slots() {
     fetchDataAndSlots();
   }, [reloadTrigger, selectedMonth]);
 
-  // useEffect(() => {
-  //   const saveDataToFirebase = async () => {
-  //     if (data.length === 0) return; // Evita gravações desnecessárias
-
-  //     try {
-  //       await setDoc(
-  //         doc(database, "admins", `${uid}`, "gympass_slots", id_booking),
-  //         {
-  //           nome,
-  //           email,
-  //           gympass_id,
-  //           booking_number,
-  //           class_id,
-  //           gym_id,
-  //           slot_id,
-  //           booking_id,
-  //         }
-  //       );
-  //     } catch (error) {
-  //       console.error("Erro geral ao salvar no Firebase:", error);
-  //     }
-  //   };
-
-  //   saveDataToFirebase();
-  // }, [data]);
-
   const handleOpenModal = (item: ClassData) => {
     setSelectedClass(item);
     onOpen();
